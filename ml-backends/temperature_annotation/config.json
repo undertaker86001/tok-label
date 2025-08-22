@@ -1,0 +1,28 @@
+{
+  "model_version": "temperature_v1.0",
+  "temperature_thresholds": {
+    "temp_rise_threshold": 1000.0,
+    "temp_fall_threshold": 500.0,
+    "gradient_threshold": 100.0,
+    "anomaly_threshold": 3.0,
+    "min_peak_height": 800.0
+  },
+  "data_processing": {
+    "remove_outliers": true,
+    "outlier_threshold": 3.0,
+    "interpolate_missing": true,
+    "normalize_data": false
+  },
+  "prediction_settings": {
+    "detect_rise_phases": true,
+    "detect_peak_moments": true,
+    "detect_fall_phases": true,
+    "detect_anomalies": true,
+    "detect_plateau_phases": true
+  },
+  "model_optimization": {
+    "enable_adaptive_thresholds": true,
+    "learning_rate": 0.05,
+    "min_training_samples": 10
+  }
+}
