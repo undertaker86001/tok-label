@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  ml-backend:
+    container_name: audio-annotation-ml-backend
+    image: audio-annotation-ml-backend:v1
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
+    environment:
+      # 基础认证参数（可选）
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # 设置模型服务器的日志级别
+      - LOG_LEVEL=DEBUG
+      # 指定工作进程数和线程数
+      - WORKERS=1
+      - THREADS=8
+      # 指定模型目录
+      - MODEL_DIR=/data/models
+      # 音频处理特定设置
+      - SAMPLE_RATE=16000
+      - MAX_AUDIO_LENGTH=300
+
+      # 指定Label Studio的URL和API密钥
+      - LABEL_STUDIO_URL='http://dap0.lan:30400'
+      - LABEL_STUDIO_API_KEY='your-api-key-here'
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/server:/data"
+      - "./models:/app/models"
+    restart: unless-stopped
