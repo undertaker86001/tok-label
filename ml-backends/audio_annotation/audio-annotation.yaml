@@ -1,0 +1,110 @@
+# 音频标注ML Backend的Kubernetes部署配置
+
+# 部署(Deployment)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-backend-audio-annotation
+  namespace: label-studio
+  labels:
+    app: ml-backend-audio-annotation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-backend-audio-annotation
+  template:
+    metadata:
+      labels:
+        app: ml-backend-audio-annotation
+    spec:
+      nodeName: dap0
+      containers:
+      - name: ml-backend-audio-annotation
+        image: docker.io/cosmosheep/audio-annotation-ml-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 9090
+        env:
+          - name: LOG_LEVEL
+            value: "DEBUG"
+          - name: LABEL_STUDIO_URL
+            value: "http://dap0.lan:30400"
+          - name: LABEL_STUDIO_API_KEY
+            value: "db485b6a000c60c389e4ba942b3827b120e3d4cb"
+          - name: WORKERS
+            value: "1"
+          - name: THREADS
+            value: "8"
+          - name: MODEL_DIR
+            value: "/data/models"
+          # 音频特定设置
+          - name: SAMPLE_RATE
+            value: "16000"
+          - name: MAX_AUDIO_LENGTH
+            value: "300"
+        volumeMounts:
+        - name: data-volume
+          mountPath: /data
+        - name: models-volume
+          mountPath: /app/models
+        resources:
+          limits:
+            memory: "4096Mi"
+            cpu: "2000m"
+          requests:
+            memory: "1024Mi"
+            cpu: "500m"
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: ml-backend-audio-pvc
+      - name: models-volume
+        persistentVolumeClaim:
+          claimName: ml-backend-models-pvc
+
+---
+# 服务(Service)
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-backend-audio-annotation-service
+  namespace: label-studio
+  labels:
+    app: ml-backend-audio-annotation
+spec:
+  type: NodePort
+  selector:
+    app: ml-backend-audio-annotation
+  ports:
+    - port: 9090
+      targetPort: 9090
+      nodePort: 30424
+      protocol: TCP
+
+---
+# 持久卷声明(PersistentVolumeClaim)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ml-backend-audio-pvc
+  namespace: label-studio
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ml-backend-models-pvc
+  namespace: label-studio
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

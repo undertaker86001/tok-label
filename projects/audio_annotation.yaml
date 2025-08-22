@@ -1,0 +1,67 @@
+project: "audio_annotation"
+project_description: "音频标注项目 - 支持语音识别和音频分类"
+project_data_type: "Audio"
+
+# 数据配置
+audio_files:
+  - "sample1.wav"
+  - "sample2.mp3"
+  - "sample3.m4a"
+
+# 音频处理配置
+audio_processing:
+  sample_rate: 16000
+  max_duration: 300  # 最大音频时长（秒）
+  normalize: true
+  remove_silence: false
+
+# 标签配置
+label_config:
+  - name: "transcription"
+    type: "textarea"
+    description: "语音转文字结果"
+    placeholder: "请输入或修正语音识别结果"
+    
+  - name: "audio_type"
+    type: "choices"
+    description: "音频类型分类"
+    choices: ["语音", "音乐", "噪音"]
+    
+  - name: "quality_score"
+    type: "number"
+    description: "音频质量评分"
+    min: 0
+    max: 100
+    step: 1
+
+# ML Backend配置
+ml_backend:
+  url: "http://localhost:9090"
+  model_name: "audio_annotation_model"
+  enabled: true
+
+# 标注指南
+annotation_guidelines:
+  transcription:
+    - "仔细听取音频内容，确保转录准确"
+    - "对于不清楚的部分，使用[不清]标记"
+    - "保持标点符号的准确性"
+    
+  audio_type:
+    - "语音：包含人声的音频片段"
+    - "音乐：纯音乐或背景音乐"
+    - "噪音：环境噪音、干扰音等"
+    
+  quality_score:
+    - "90-100：音质极佳，清晰无杂音"
+    - "70-89：音质良好，轻微杂音"
+    - "50-69：音质一般，明显杂音"
+    - "30-49：音质较差，严重杂音"
+    - "0-29：音质极差，无法听清"
+
+# 项目设置
+project_settings:
+  allow_skip: true
+  allow_duplicate: false
+  max_annotations_per_task: 3
+  require_annotations: true

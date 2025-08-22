@@ -1,0 +1,23 @@
+{
+  "model_version": "audio_annotation_v1.0",
+  "sample_rate": 16000,
+  "max_audio_length": 300,
+  "supported_formats": [".wav", ".mp3", ".m4a", ".flac", ".ogg"],
+  "annotation_types": {
+    "speech_recognition": {
+      "enabled": true,
+      "model": "whisper-base",
+      "language": "zh"
+    },
+    "audio_classification": {
+      "enabled": true,
+      "categories": ["语音", "音乐", "噪音"]
+    }
+  },
+  "processing": {
+    "normalize_audio": true,
+    "remove_silence": false,
+    "segment_length": 3.0,
+    "overlap_ratio": 0.5
+  }
+}
