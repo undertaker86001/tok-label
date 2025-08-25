@@ -7,3 +7,10 @@ label-studio-sdk
 numpy
 pytz
 python-dotenv
+# Doris 数据库支持
+pymysql>=1.0.2
+PyMySQL[rsa]>=1.0.2
+# 数据库连接池支持
+DBUtils>=3.0.0
+# 图像处理（如果需要）
+opencv-python>=4.5.0

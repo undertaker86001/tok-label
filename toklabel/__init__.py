@@ -27,6 +27,13 @@ from .toklabel import (
 # 从project_builder导入
 from .projectbuilder import ProjectBuilder
 
+# 新增：从数据库管理模块导入
+from .annotationmanage.database_factory import DatabaseFactory
+from .annotationmanage.unified_ts import UnifiedAnnotationManager
+from .config_manager import ConfigManager
+from .database_manager import DatabaseManager
+from .migration_tool import DatabaseMigrationTool
+
 # 3) 可选：__all__ 用于限制 from toklabel import * 时导出的名称
 __all__ = [
     "BasePredictor",
@@ -52,5 +59,10 @@ __all__ = [
     "load_project_data",
     "load_project_imgs",
     "connect_Label_Studio",
-    # ...
+    # 新增的数据库管理相关
+    "DatabaseFactory",
+    "UnifiedAnnotationManager",
+    "ConfigManager", 
+    "DatabaseManager",
+    "DatabaseMigrationTool"
 ]

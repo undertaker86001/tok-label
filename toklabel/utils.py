@@ -1,4 +1,4 @@
-from .config import FILE_SERVER_URL, EXTRACTOR_SERVER_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_DB
+from .config import FILE_SERVER_URL, EXTRACTOR_SERVER_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_DB, DATABASE_TYPE
 import requests
 from typing import Dict, List, Optional, Tuple, Callable, Union
 import redis
@@ -69,12 +69,14 @@ def export_data(
         project_name: str, 
         shots: List[int], 
         name_table_columns: Dict, 
-        t_min: Optional[float]=None, t_max: Optional[float]=None, 
-        resolution: Optional[float]=None
+        t_min: Optional[float]=None, 
+        t_max: Optional[float]=None, 
+        resolution: Optional[float]=None,
+        database_type: Optional[str]=None  # 新增：数据库类型参数
         ):
     """
-    导出数据
-
+    导出数据，支持 PostgreSQL 和 Doris
+    
     参数:
     project_name (str): 项目名称, 也是文件夹名称
     shots (List[int]): 炮号列表
@@ -82,7 +84,8 @@ def export_data(
     t_min (float, optional): 起始时间
     t_max (float, optional): 结束时间
     resolution (float, optional): 分辨率
-
+    database_type (str, optional): 数据库类型 ('postgresql' 或 'doris')
+    
     返回:
     message: 操作成功或失败的消息
     """
@@ -98,17 +101,20 @@ def export_data(
             params["t_max"] = t_max
         if resolution is not None:
             params["resolution"] = resolution
-        #if filter_list:
-        #    params["filter_list"] = filter_list
-        #print(filter_list)
-        # export data
+        if database_type is not None:
+            params["database_type"] = database_type
+        else:
+            params["database_type"] = DATABASE_TYPE
+        
+        # 导出数据
         response = requests.post(f"{FILE_SERVER_URL}/export/", json=params)
         response.raise_for_status()
         result = response.json()
         print(result)
-        # add url to result
+        
+        # 添加完整URL到结果中
         if "urls" in result:
-            result["urls"] = {shot: f"{FILE_SERVER_URL}{url}" for shot, url in zip(shots, result["urls"])}
+            result["full_urls"] = [f"{FILE_SERVER_URL}{url}" for url in result["urls"]]
         return result
     except requests.exceptions.RequestException as e:
         return {"error": str(e)}
