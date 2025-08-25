@@ -1,0 +1,29 @@
+{
+    "model_version": "mining_audio_v1.0",
+    "sample_rate": 22050,
+    "n_mfcc": 13,
+    "prediction_threshold": 0.5,
+    "max_audio_length": 300,
+    "supported_formats": ["wav", "mp3", "flac", "m4a"],
+    "mining_labels": {
+        "equipment_status": ["normal", "abnormal", "maintenance_needed"],
+        "fault_type": ["bearing_fault", "motor_fault", "hydraulic_leak", "belt_fault"],
+        "priority": ["low_priority", "medium_priority", "high_priority"]
+    },
+    "feature_extraction": {
+        "n_fft": 2048,
+        "hop_length": 512,
+        "window": "hann"
+    },
+    "model_architecture": {
+        "hidden_dims": [256, 128, 64],
+        "dropout_rate": 0.3,
+        "batch_norm": true
+    },
+    "training": {
+        "learning_rate": 0.001,
+        "batch_size": 32,
+        "epochs": 50,
+        "early_stopping_patience": 10
+    }
+}

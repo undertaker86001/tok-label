@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  ml-backend-mining:
+    build: .
+    container_name: mining-audio-ml-backend
+    ports:
+      - "9091:9090"  # 使用不同端口避免冲突
+    environment:
+      - MODEL_VERSION=mining_audio_v1.0
+      - LOG_LEVEL=INFO
+      - WORKERS=1
+      - THREADS=8
+      - MODEL_PATH=/data/models/mining_audio_model.pth
+      - SCALER_PATH=/data/models/feature_scaler.pkl
+    volumes:
+      - ./models:/data/models
+      - ./data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
