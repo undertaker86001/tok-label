@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  vibration-phm-ml-backend:
+    build: .
+    ports:
+      - "9090:9090"
+    environment:
+      - LABEL_STUDIO_URL=http://label-studio:8080
+      - LABEL_STUDIO_API_KEY=your_api_key_here
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ML_BACKEND_PORT=9090
+      - ML_BACKEND_WORKERS=2
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
