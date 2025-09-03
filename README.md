@@ -179,3 +179,86 @@ storage = toklabel.create_storage(ls, project_id = proj.id, project_name = 'demo
 根据等离子体位形参数进行最外闭合磁面的标注
 
 ![示例2：等离子体位形标注](docs/imgs/example2.png)
+
+---
+
+## 振动数据PHM预测性维护AI自动化打标系统
+
+### 新增功能
+
+基于toklabel框架，我们新增了振动数据PHM（预测性维护）AI自动化打标系统，专门为工业互联网公司提供振动数据多标签标注解决方案。
+
+#### 核心特性
+
+1. **多标签标注**
+   - 转速段标注：低、中、高转速段自动识别
+   - 质量分数：设备健康状态评分（0-100）
+   - 故障类型：不平衡、轴承故障、齿轮故障检测
+   - 置信度：每个预测结果的可靠性评估
+
+2. **智能特征提取**
+   - 时域特征：RMS值、峰值、标准差、峰度、偏度
+   - 频域特征：主频、频谱质心、频谱滚降、频谱带宽
+   - 转速特征：平均转速、转速稳定性、转速变化范围
+
+3. **自动化预测**
+   - 基于滑动窗口的转速段自动分割
+   - 基于振动特征的故障类型智能识别
+   - 多维度综合质量评估算法
+   - 支持在线学习和模型更新
+
+#### 快速开始
+
+```bash
+# 1. 安装依赖
+pip install -r ml-backends/vibration_phm/requirements.txt
+
+# 2. 初始化数据库
+python scripts/init_vibration_database.py
+
+# 3. 启动ML后端
+cd ml-backends/vibration_phm
+docker-compose up -d
+
+# 4. 创建标注项目
+python vibration_project_create.py
+
+# 5. 运行测试
+python test_vibration_system.py
+```
+
+#### 配置文件
+
+项目使用 `vibration-config.yaml` 配置文件，支持：
+- 振动传感器数据配置
+- 多标签类型定义
+- 数据筛选和预处理
+- 时间范围和分辨率设置
+
+#### 核心组件
+
+- **VibrationPredictor**: 振动数据预测器
+- **VibrationDataManager**: 数据管理和存储
+- **VibrationAnnotationAnalyzer**: 标注分析和可视化
+- **VibrationPHMModel**: ML后端模型
+
+#### 详细文档
+
+更多详细信息请参考：[VIBRATION_PHM_README.md](VIBRATION_PHM_README.md)
+
+#### 系统架构
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Label Studio  │    │   ML Backend    │    │   Data Manager  │
+│   (标注界面)     │◄──►│   (AI预测)      │◄──►│   (数据管理)     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   PostgreSQL    │    │     Redis       │    │   File Server   │
+│   (标注存储)     │    │   (缓存)        │    │   (文件服务)     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+这个新增的振动数据PHM系统完全基于现有的toklabel框架，提供了完整的工业级振动数据AI自动化打标解决方案。
