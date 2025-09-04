@@ -23,6 +23,7 @@ from .core.minio_validator import MinIODataValidator
 from .core.minio_performance import MinIOPerformanceOptimizer
 from .core.minio_importer import MinIOImporter
 from .core.storage_adapter import StorageAdapter, LocalStorageAdapter, MinIOStorageAdapter
+from .core.wav_audio_manager import WAVAudioManager
 
 # 主要类导出
 __all__ = [
@@ -36,4 +37,5 @@ __all__ = [
     "StorageAdapter",
     "LocalStorageAdapter",
     "MinIOStorageAdapter",
+    "WAVAudioManager",
 ]

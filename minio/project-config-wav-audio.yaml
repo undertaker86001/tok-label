@@ -1,0 +1,201 @@
+# WAV音频标注项目配置文件
+# 专门用于WAV文件的音频标注场景
+
+project: wav_audio_annotation
+description: "WAV音频文件标注项目"
+
+# MinIO配置
+minio:
+  enabled: true
+  bucket: ${MINIO_BUCKET:-audio-storage}
+  prefix: wav_files
+  auto_sync: true
+  import_pattern: '/(\d+)\.wav$'
+  endpoint: ${MINIO_ENDPOINT:-localhost:9000}
+  connection:
+    access_key: ${MINIO_ACCESS_KEY:-minioadmin}
+    secret_key: ${MINIO_SECRET_KEY:-minioadmin}
+    secure: ${MINIO_SECURE:-false}
+
+# 音频处理管道配置
+pipelines:
+  # 音频预处理管道
+  - name: "音频预处理"
+    description: "WAV文件预处理和格式检查"
+    source:
+      type: minio
+      config:
+        prefix: raw_audio
+        file_pattern: "*.wav"
+    processors:
+      - type: audio_validation
+        config:
+          max_file_size_mb: 100
+          supported_formats: ["wav"]
+          sample_rate_check: true
+      - type: audio_metadata
+        config:
+          extract_duration: true
+          extract_sample_rate: true
+          extract_channels: true
+    destination:
+      type: minio
+      prefix: processed_audio
+    max_workers: 5
+
+  # 音频特征提取管道
+  - name: "音频特征提取"
+    description: "提取音频特征用于标注辅助"
+    source:
+      type: minio
+      config:
+        prefix: processed_audio
+        file_pattern: "*.wav"
+    processors:
+      - type: audio_features
+        config:
+          extract_spectrogram: true
+          extract_mfcc: true
+          extract_pitch: true
+          extract_energy: true
+    destination:
+      type: minio
+      prefix: audio_features
+    max_workers: 3
+
+# Label Studio配置
+label_studio:
+  url: ${LABEL_STUDIO_URL:-http://localhost:8080}
+  api_key: ${LABEL_STUDIO_API_KEY:-your_api_key_here}
+  project_title: "WAV音频标注项目"
+  
+  # 音频标注界面配置
+  label_config: |
+    <View>
+      <Header value="音频标注任务"/>
+      <Audio name="audio" value="$audio" hotkey="space" zoom="true" height="400"/>
+      <Labels name="label" toName="audio">
+        <Label value="正常" background="green"/>
+        <Label value="异常" background="red"/>
+        <Label value="噪音" background="orange"/>
+        <Label value="静音" background="gray"/>
+      </Labels>
+      <TextArea name="notes" toName="audio" 
+                perRegion="true" 
+                displayMode="region-list" 
+                placeholder="请输入标注说明..."/>
+      <Choices name="quality" toName="audio">
+        <Choice value="高质量"/>
+        <Choice value="中等质量"/>
+        <Choice value="低质量"/>
+      </Choices>
+    </View>
+  
+  # 时间序列音频标注配置
+  timeseries_config: |
+    <View>
+      <Header value="时间序列音频标注"/>
+      <Audio name="audio" value="$audio" hotkey="space" zoom="true" height="400"/>
+      <TimeSeriesLabels name="label" toName="audio">
+        <Label value="语音开始" background="green"/>
+        <Label value="语音结束" background="red"/>
+        <Label value="噪音段" background="orange"/>
+        <Label value="静音段" background="gray"/>
+      </TimeSeriesLabels>
+      <TextArea name="transcription" toName="audio" 
+                perRegion="true" 
+                displayMode="region-list" 
+                placeholder="请输入转写文本..."/>
+    </View>
+  
+  # ML Backend配置
+  ml_backends:
+    - name: "audio_quality_backend"
+      url: "http://localhost:9090"
+      model_type: "audio_quality"
+      description: "音频质量评估模型"
+      parameters:
+        threshold: 0.5
+        window_size: 1024
+      input_types: ["audio"]
+      output_types: ["choices", "labels"]
+
+# 音频处理配置
+audio_processing:
+  supported_formats: ["wav"]
+  max_file_size_mb: 100
+  sample_rate: 44100
+  channels: 2
+  bit_depth: 16
+  
+  # 音频预处理参数
+  preprocessing:
+    normalize: true
+    remove_silence: true
+    noise_reduction: false
+    resample: false
+    
+  # 特征提取参数
+  feature_extraction:
+    spectrogram: true
+    mfcc: true
+    pitch: true
+    energy: true
+    zero_crossing_rate: true
+
+# 数据验证配置
+validation:
+  required_audio_formats: ["wav"]
+  max_file_size_mb: 100
+  audio_quality_check: true
+  metadata_validation: true
+  annotation_validation: true
+
+# 性能配置
+performance:
+  max_workers: ${MAX_WORKERS:-10}
+  cache_enabled: ${CACHE_ENABLED:-true}
+  cache_size_mb: ${CACHE_SIZE_MB:-500}
+  retry_failed: true
+  max_retries: 3
+  audio_processing_timeout: 300
+
+# 监控配置
+monitoring:
+  health_check_interval: 60
+  storage_statistics: true
+  audio_processing_monitoring: true
+  data_change_monitoring: true
+  log_level: ${LOG_LEVEL:-INFO}
+
+# 数据库配置
+database:
+  postgresql:
+    host: ${POSTGRES_HOST:-localhost}
+    port: ${POSTGRES_PORT:-5432}
+    database: ${POSTGRES_DB:-audio_annotations}
+    user: ${POSTGRES_USER:-audio_user}
+    password: ${POSTGRES_PASSWORD:-audio_password}
+    
+  # 标注数据表结构
+  annotation_tables:
+    - name: "audio_annotations"
+      columns:
+        - "id SERIAL PRIMARY KEY"
+        - "task_id INTEGER"
+        - "audio_url TEXT"
+        - "annotation_type VARCHAR(50)"
+        - "annotation_value TEXT"
+        - "start_time FLOAT"
+        - "end_time FLOAT"
+        - "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    
+    - name: "audio_metadata"
+      columns:
+        - "id SERIAL PRIMARY KEY"
+        - "audio_url TEXT"
+        - "duration FLOAT"
+        - "sample_rate INTEGER"
+        - "channels INTEGER"
+        - "file_size BIGINT"
+        - "upload_time TIMESTAMP"

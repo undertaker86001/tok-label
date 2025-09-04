@@ -1,196 +1,215 @@
-import yaml
+"""
+MinIO配置管理器
+支持环境变量配置和动态配置管理
+"""
+
 import os
-from typing import Dict, List, Optional
+import yaml
 import logging
+from typing import Dict, Any, Optional
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 class MinIOConfigManager:
-    """MinIO配置管理器，处理项目配置和MinIO集成设置"""
+    """MinIO配置管理器，支持环境变量和配置文件"""
     
-    def __init__(self, config_file: str = None):
+    def __init__(self, config_file: str):
         self.config_file = config_file
-        self.config = {}
-        if config_file and os.path.exists(config_file):
-            self.load_config()
-    
-    def load_config(self):
-        """加载配置文件"""
+        self.config = self._load_config()
+        
+    def _load_config(self) -> Dict[str, Any]:
+        """加载配置文件，支持环境变量替换"""
         try:
             with open(self.config_file, 'r', encoding='utf-8') as f:
-                self.config = yaml.safe_load(f)
-        except Exception as e:
-            logger.error(f"Error loading config file {self.config_file}: {e}")
-            self.config = {}
-    
-    def save_config(self):
-        """保存配置文件"""
-        try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                yaml.dump(self.config, f, default_flow_style=False, allow_unicode=True)
-        except Exception as e:
-            logger.error(f"Error saving config file {self.config_file}: {e}")
-    
-    def enable_minio(self, 
-                     bucket: str = None, 
-                     prefix: str = "", 
-                     auto_sync: bool = False,
-                     import_pattern: str = r'/(\d+)\.csv$',
-                     minio_config: Dict = None) -> Dict:
-        """
-        启用MinIO集成
-        
-        参数:
-        bucket: 存储桶名称
-        prefix: 对象前缀
-        auto_sync: 是否自动同步
-        import_pattern: 导入文件名模式
-        minio_config: MinIO连接配置
-        
-        返回:
-        Dict: 操作结果
-        """
-        try:
-            # 使用传入的配置或默认配置
-            if minio_config:
-                endpoint = minio_config.get('endpoint', 'localhost:9000')
-                access_key = minio_config.get('access_key', 'minioadmin')
-                secret_key = minio_config.get('secret_key', 'minioadmin')
-            else:
-                endpoint = 'localhost:9000'
-                access_key = 'minioadmin'
-                secret_key = 'minioadmin'
+                config_content = f.read()
             
-            minio_config_dict = {
+            # 替换环境变量
+            config_content = self._replace_env_vars(config_content)
+            
+            # 解析YAML
+            config = yaml.safe_load(config_content)
+            
+            logger.info(f"配置文件加载成功: {self.config_file}")
+            return config
+            
+        except Exception as e:
+            logger.error(f"配置文件加载失败: {e}")
+            return self._get_default_config()
+    
+    def _replace_env_vars(self, content: str) -> str:
+        """替换内容中的环境变量"""
+        # 支持 ${VAR:-default} 格式的环境变量
+        import re
+        
+        def replace_var(match):
+            var_name = match.group(1)
+            default_value = match.group(2) if match.group(2) else ""
+            return os.getenv(var_name, default_value)
+        
+        # 替换 ${VAR:-default} 格式
+        content = re.sub(r'\$\{([^:]+)(?::-([^}]*))?\}', replace_var, content)
+        
+        # 替换 $VAR 格式
+        content = re.sub(r'\$([A-Z_][A-Z0-9_]*)', lambda m: os.getenv(m.group(1), ''), content)
+        
+        return content
+    
+    def _get_default_config(self) -> Dict[str, Any]:
+        """获取默认配置"""
+        return {
+            "project": "default_project",
+            "description": "默认项目",
+            "minio": {
                 "enabled": True,
-                "bucket": bucket or 'tok-label',
-                "prefix": prefix,
-                "auto_sync": auto_sync,
-                "import_pattern": import_pattern,
-                "endpoint": endpoint,
+                "bucket": os.getenv("MINIO_BUCKET", "default-bucket"),
+                "endpoint": os.getenv("MINIO_ENDPOINT", "localhost:9000"),
                 "connection": {
-                    "access_key": access_key,
-                    "secret_key": secret_key
+                    "access_key": os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
+                    "secret_key": os.getenv("MINIO_SECRET_KEY", "minioadmin"),
+                    "secure": os.getenv("MINIO_SECURE", "false").lower() == "true"
                 }
-            }
-            
-            self.config["minio"] = minio_config_dict
-            
-            if self.config_file:
-                self.save_config()
-            
-            return {
-                "message": "MinIO integration enabled successfully",
-                "config": minio_config_dict
-            }
-            
-        except Exception as e:
-            return {"error": f"Failed to enable MinIO: {str(e)}"}
-    
-    def disable_minio(self) -> Dict:
-        """禁用MinIO集成"""
-        try:
-            if "minio" in self.config:
-                self.config["minio"]["enabled"] = False
-                
-                if self.config_file:
-                    self.save_config()
-                
-                return {"message": "MinIO integration disabled successfully"}
-            else:
-                return {"message": "MinIO was not enabled"}
-                
-        except Exception as e:
-            return {"error": f"Failed to disable MinIO: {str(e)}"}
-    
-    def get_minio_config(self) -> Dict:
-        """获取MinIO配置"""
-        return self.config.get("minio", {})
-    
-    def is_minio_enabled(self) -> bool:
-        """检查MinIO是否启用"""
-        minio_config = self.get_minio_config()
-        return minio_config.get("enabled", False)
-    
-    def create_data_pipeline_config(self, 
-                                   source_type: str,
-                                   source_config: Dict,
-                                   processors: List[Dict] = None,
-                                   destination_prefix: str = "") -> Dict:
-        """
-        创建数据管道配置
-        
-        参数:
-        source_type: 数据源类型 ("postgres", "minio")
-        source_config: 数据源配置
-        processors: 处理器列表
-        destination_prefix: 目标前缀
-        
-        返回:
-        Dict: 管道配置
-        """
-        pipeline_config = {
-            "source": {
-                "type": source_type,
-                "config": source_config
             },
-            "processors": processors or [],
-            "destination": {
-                "type": "minio",
-                "prefix": destination_prefix
-            },
-            "max_workers": 10
+            "label_studio": {
+                "url": os.getenv("LABEL_STUDIO_URL", "http://localhost:8080"),
+                "api_key": os.getenv("LABEL_STUDIO_API_KEY", "your_api_key_here"),
+                "username": os.getenv("LABEL_STUDIO_USERNAME", "admin"),
+                "password": os.getenv("LABEL_STUDIO_PASSWORD", "admin123")
+            }
         }
-        
-        # 保存到配置文件
-        if "pipelines" not in self.config:
-            self.config["pipelines"] = []
-        
-        self.config["pipelines"].append(pipeline_config)
-        
-        if self.config_file:
-            self.save_config()
-        
-        return pipeline_config
     
-    def get_pipeline_configs(self) -> List[Dict]:
-        """获取所有管道配置"""
+    def get_minio_config(self) -> Dict[str, Any]:
+        """获取MinIO配置"""
+        minio_config = self.config.get("minio", {})
+        
+        # 环境变量覆盖
+        return {
+            "enabled": minio_config.get("enabled", True),
+            "bucket": os.getenv("MINIO_BUCKET", minio_config.get("bucket", "default-bucket")),
+            "endpoint": os.getenv("MINIO_ENDPOINT", minio_config.get("endpoint", "localhost:9000")),
+            "access_key": os.getenv("MINIO_ACCESS_KEY", minio_config.get("connection", {}).get("access_key", "minioadmin")),
+            "secret_key": os.getenv("MINIO_SECRET_KEY", minio_config.get("connection", {}).get("secret_key", "minioadmin")),
+            "secure": os.getenv("MINIO_SECURE", str(minio_config.get("connection", {}).get("secure", False))).lower() == "true"
+        }
+    
+    def get_label_studio_config(self) -> Dict[str, Any]:
+        """获取Label Studio配置"""
+        ls_config = self.config.get("label_studio", {})
+        
+        return {
+            "url": os.getenv("LABEL_STUDIO_URL", ls_config.get("url", "http://localhost:8080")),
+            "api_key": os.getenv("LABEL_STUDIO_API_KEY", ls_config.get("api_key", "your_api_key_here")),
+            "username": os.getenv("LABEL_STUDIO_USERNAME", ls_config.get("username", "admin")),
+            "password": os.getenv("LABEL_STUDIO_PASSWORD", ls_config.get("password", "admin123"))
+        }
+    
+    def get_database_config(self) -> Dict[str, Any]:
+        """获取数据库配置"""
+        db_config = self.config.get("database", {}).get("postgresql", {})
+        
+        return {
+            "host": os.getenv("POSTGRES_HOST", db_config.get("host", "localhost")),
+            "port": int(os.getenv("POSTGRES_PORT", str(db_config.get("port", 5432)))),
+            "database": os.getenv("POSTGRES_DB", db_config.get("database", "toklabel")),
+            "user": os.getenv("POSTGRES_USER", db_config.get("user", "toklabel")),
+            "password": os.getenv("POSTGRES_PASSWORD", db_config.get("password", "toklabel123"))
+        }
+    
+    def get_redis_config(self) -> Dict[str, Any]:
+        """获取Redis配置"""
+        return {
+            "host": os.getenv("REDIS_HOST", "localhost"),
+            "port": int(os.getenv("REDIS_PORT", "6379")),
+            "db": int(os.getenv("REDIS_DB", "0")),
+            "password": os.getenv("REDIS_PASSWORD", "")
+        }
+    
+    def get_pipeline_configs(self) -> list:
+        """获取管道配置"""
         return self.config.get("pipelines", [])
     
-    def remove_pipeline_config(self, index: int) -> Dict:
-        """删除指定索引的管道配置"""
-        try:
-            pipelines = self.config.get("pipelines", [])
-            if 0 <= index < len(pipelines):
-                removed_pipeline = pipelines.pop(index)
-                if self.config_file:
-                    self.save_config()
-                return {
-                    "message": f"Pipeline config at index {index} removed successfully",
-                    "removed_config": removed_pipeline
-                }
-            else:
-                return {"error": f"Invalid pipeline index: {index}"}
-        except Exception as e:
-            return {"error": f"Failed to remove pipeline config: {str(e)}"}
+    def get_performance_config(self) -> Dict[str, Any]:
+        """获取性能配置"""
+        perf_config = self.config.get("performance", {})
+        
+        return {
+            "max_workers": int(os.getenv("MAX_WORKERS", str(perf_config.get("max_workers", 10)))),
+            "cache_enabled": os.getenv("CACHE_ENABLED", str(perf_config.get("cache_enabled", True))).lower() == "true",
+            "cache_size_mb": int(os.getenv("CACHE_SIZE_MB", str(perf_config.get("cache_size_mb", 1000))))
+        }
     
-    def update_minio_settings(self, **kwargs) -> Dict:
-        """更新MinIO设置"""
+    def get_monitoring_config(self) -> Dict[str, Any]:
+        """获取监控配置"""
+        monitor_config = self.config.get("monitoring", {})
+        
+        return {
+            "health_check_interval": monitor_config.get("health_check_interval", 60),
+            "storage_statistics": monitor_config.get("storage_statistics", True),
+            "data_change_monitoring": monitor_config.get("data_change_monitoring", True),
+            "log_level": os.getenv("LOG_LEVEL", monitor_config.get("log_level", "INFO"))
+        }
+    
+    def get_project_info(self) -> Dict[str, Any]:
+        """获取项目信息"""
+        return {
+            "name": self.config.get("project", "default_project"),
+            "description": self.config.get("description", "默认项目"),
+            "minio_enabled": self.config.get("minio", {}).get("enabled", True)
+        }
+    
+    def update_config(self, updates: Dict[str, Any]) -> bool:
+        """更新配置"""
         try:
-            if "minio" not in self.config:
-                self.config["minio"] = {}
+            # 更新配置字典
+            for key, value in updates.items():
+                keys = key.split('.')
+                current = self.config
+                for k in keys[:-1]:
+                    if k not in current:
+                        current[k] = {}
+                    current = current[k]
+                current[keys[-1]] = value
             
-            # 更新设置
-            for key, value in kwargs.items():
-                if key in ["bucket", "prefix", "auto_sync", "import_pattern", "enabled"]:
-                    self.config["minio"][key] = value
+            # 保存到文件
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                yaml.dump(self.config, f, default_flow_style=False, allow_unicode=True)
             
-            if self.config_file:
-                self.save_config()
+            logger.info(f"配置更新成功: {updates}")
+            return True
             
-            return {
-                "message": "MinIO settings updated successfully",
-                "updated_config": self.config["minio"]
-            }
         except Exception as e:
-            return {"error": f"Failed to update MinIO settings: {str(e)}"}
+            logger.error(f"配置更新失败: {e}")
+            return False
+    
+    def validate_config(self) -> Dict[str, Any]:
+        """验证配置"""
+        errors = []
+        warnings = []
+        
+        # 验证MinIO配置
+        minio_config = self.get_minio_config()
+        if minio_config["enabled"]:
+            if not minio_config["bucket"]:
+                errors.append("MinIO bucket未配置")
+            if not minio_config["endpoint"]:
+                errors.append("MinIO endpoint未配置")
+        
+        # 验证Label Studio配置
+        ls_config = self.get_label_studio_config()
+        if not ls_config["url"]:
+            errors.append("Label Studio URL未配置")
+        if not ls_config["api_key"] or ls_config["api_key"] == "your_api_key_here":
+            warnings.append("Label Studio API Key未配置或使用默认值")
+        
+        # 验证数据库配置
+        db_config = self.get_database_config()
+        if not db_config["host"]:
+            errors.append("数据库主机未配置")
+        if not db_config["database"]:
+            errors.append("数据库名称未配置")
+        
+        return {
+            "valid": len(errors) == 0,
+            "errors": errors,
+            "warnings": warnings
+        }

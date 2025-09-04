@@ -1,0 +1,157 @@
+# MinIO集成项目配置文件
+# 用于配置MinIO集成和数据处理管道
+
+project: plasma_analysis
+description: "等离子体分析项目 - MinIO集成版本"
+
+# MinIO配置
+minio:
+  enabled: true
+  bucket: tok-label
+  prefix: plasma_data
+  auto_sync: true
+  import_pattern: '/(\d+)\.csv$'
+  endpoint: localhost:9000
+  connection:
+    access_key: minioadmin
+    secret_key: minioadmin
+    secure: false
+
+# 数据处理管道配置
+pipelines:
+  # 基础数据处理管道
+  - name: "基础数据处理"
+    description: "从PostgreSQL提取数据，进行基础处理并存储到MinIO"
+    source:
+      type: postgres
+      config:
+        shots: [240830030, 240830031, 240830032]
+        name_table_columns:
+          ammeter: ["ammeter", ["CS1", "CS2", "CS3"]]
+          flux_loop: ["flux_loop", [1, 2, 3, 4]]
+          temperature: ["temperature", ["T1", "T2"]]
+        t_min: 0.0
+        t_max: 2.0
+        resolution: 1e-3
+    processors:
+      - type: filter
+        config:
+          condition: "time >= 0.1 and time <= 1.5"
+      - type: normalize
+        config:
+          columns: ["CS1", "CS2", "CS3"]
+          method: "zscore"
+    destination:
+      type: minio
+      prefix: processed/basic
+    max_workers: 10
+
+  # 高级数据处理管道
+  - name: "高级数据处理"
+    description: "包含复杂处理步骤的数据管道"
+    source:
+      type: minio
+      config:
+        prefix: processed/basic
+        file_pattern: "*.csv"
+    processors:
+      - type: resample
+        config:
+          time_column: "time"
+          frequency: "10ms"
+      - type: filter
+        config:
+          condition: "CS1 > 0 and CS2 > 0"
+      - type: normalize
+        config:
+          columns: ["CS1", "CS2", "CS3"]
+          method: "minmax"
+    destination:
+      type: minio
+      prefix: processed/advanced
+    max_workers: 15
+
+# Label Studio配置
+label_studio:
+  url: http://localhost:8080
+  api_key: your_api_key_here
+  project_title: "等离子体分析标注"
+  
+  # 标注界面配置 - 与ML Backend的标签头对应
+  label_config: |
+    <View>
+      <!-- 时间序列数据标注 -->
+      <TimeSeriesLabels name="label" toName="ts">
+        <Label value="正常" background="green"/>
+        <Label value="异常" background="red"/>
+        <Label value="边界" background="orange"/>
+      </TimeSeriesLabels>
+      <TimeSeries name="ts" value="$csv" timeColumn="time" valueColumns="CS1,CS2,CS3"/>
+      
+      <!-- 等离子体掩码标注 - 对应plasma_mask ML backend -->
+      <BrushLabels name="plasma_mask" toName="image">
+        <Label value="plasma" background="blue"/>
+        <Label value="background" background="gray"/>
+      </BrushLabels>
+      <Image name="image" value="$image" width="100%"/>
+      
+      <!-- 等离子体中心点标注 - 对应plasma_mask ML backend -->
+      <KeyPointLabels name="center" toName="image">
+        <Label value="center" background="red"/>
+      </KeyPointLabels>
+      
+      <!-- 等离子体参数标注 - 对应plasma_mask ML backend -->
+      <Number name="R" toName="image" step="0.01" min="0" max="1"/>
+      <Number name="Z" toName="image" step="0.01" min="-1" max="1"/>
+      <Number name="a" toName="image" step="0.01" min="0" max="1"/>
+      <Number name="k" toName="image" step="0.01" min="0" max="5"/>
+      <Number name="delta_u" toName="image" step="0.01" min="-1" max="1"/>
+      <Number name="delta_l" toName="image" step="0.01" min="-1" max="1"/>
+    </View>
+  
+  # ML Backend配置 - 与ML backend的关联
+  ml_backends:
+    - name: "plasma_mask_backend"
+      url: "http://localhost:9090"
+      model_type: "plasma_mask"
+      description: "等离子体掩码预测模型"
+      parameters:
+        center: [0.5, 0]
+        a: 0.3
+        k: 1.75
+        delta_u: 0.3125
+        delta_l: -0.25
+      input_types: ["image"]
+      output_types: ["brush", "keypoint", "number"]
+    
+    - name: "discharge_timing_backend"
+      url: "http://localhost:9091"
+      model_type: "discharge_timing"
+      description: "放电时序特征预测模型"
+      parameters:
+        threshold: 0.5
+        window_size: 100
+      input_types: ["timeseries"]
+      output_types: ["timeserieslabels"]
+
+# 数据验证配置
+validation:
+  required_columns: ["time", "CS1", "CS2", "CS3"]
+  time_range_check: true
+  data_consistency_check: true
+  annotation_validation: true
+
+# 性能配置
+performance:
+  max_workers: 20
+  cache_enabled: true
+  cache_size_mb: 1000
+  retry_failed: true
+  max_retries: 3
+
+# 监控配置
+monitoring:
+  health_check_interval: 60
+  storage_statistics: true
+  data_change_monitoring: true
+  log_level: INFO

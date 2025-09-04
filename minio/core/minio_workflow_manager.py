@@ -5,6 +5,7 @@ from .minio_data_manager import MinIODataManager
 from .minio_config_manager import MinIOConfigManager
 from .utils import export_annotation, simple_json_convertor
 from .annotationmanage import AnnotationManager
+from .wav_audio_manager import WAVAudioManager
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,7 @@ class MinIOWorkflowManager:
         self.config_manager = MinIOConfigManager(config_file)
         self.project_builder = None
         self.data_manager = None
+        self.wav_manager = None
         
     def initialize_project(self, **kwargs) -> Dict:
         """初始化项目"""
@@ -27,6 +29,13 @@ class MinIOWorkflowManager:
                 self.project_builder.project,
                 self.project_builder.minio_bucket
             )
+            
+            # 创建WAV音频管理器
+            if hasattr(self.project_builder, 'minio_client'):
+                self.wav_manager = WAVAudioManager(
+                    self.project_builder.minio_client,
+                    self.project_builder.minio_bucket
+                )
             
             return {
                 "message": "Project initialized successfully",
@@ -193,3 +202,108 @@ class MinIOWorkflowManager:
             
         except Exception as e:
             return {"error": f"Failed to get project status: {str(e)}"}
+s    
+    # ==================== WAV音频工作流方法 ====================
+    
+    def run_wav_audio_workflow(self, wav_files_dir: str, ls_client, 
+                              create_project: bool = True) -> Dict:
+        """运行WAV音频文件标注工作流"""
+        try:
+            if not self.wav_manager:
+                return {"error": "WAV manager not initialized"}
+            
+            results = {}
+            
+            # 1. 批量上传WAV文件到MinIO
+            wav_upload_results = self.wav_manager.batch_upload_wav_files(
+                wav_files_dir, 
+                "audio_files/"
+            )
+            results["wav_upload"] = wav_upload_results
+            
+            # 2. 创建Label Studio任务
+            successful_uploads = [r for r in wav_upload_results if r.get("success")]
+            tasks = self.wav_manager.create_audio_project_tasks(
+                successful_uploads,
+                {"project_type": "audio_annotation"}
+            )
+            results["tasks_created"] = len(tasks)
+            
+            # 3. 创建Label Studio项目（如果需要）
+            if create_project and tasks:
+                project = ls_client.create_project(
+                    title="WAV音频标注项目",
+                    label_config=self.wav_manager.create_audio_annotation_config(),
+                    description="音频文件标注项目"
+                )
+                results["project_id"] = project.id
+                
+                # 导入任务
+                project.import_tasks(tasks)
+                results["tasks_imported"] = len(tasks)
+            
+            return {
+                "message": "WAV audio workflow completed successfully",
+                "results": results
+            }
+            
+        except Exception as e:
+            return {"error": f"WAV audio workflow failed: {str(e)}"}
+    
+    def export_wav_annotations(self, ls_client, project_id: int, 
+                              db_connection = None) -> Dict:
+        """导出WAV音频标注数据"""
+        try:
+            if not self.wav_manager:
+                return {"error": "WAV manager not initialized"}
+            
+            # 导出标注数据
+            export_result = self.wav_manager.export_audio_annotations(
+                ls_client, 
+                project_id
+            )
+            
+            if export_result.get("error"):
+                return export_result
+            
+            # 保存到PostgreSQL（如果提供连接）
+            pg_result = None
+            if db_connection:
+                pg_result = self.wav_manager.save_annotations_to_postgres(
+                    export_result["annotations"],
+                    db_connection
+                )
+            
+            return {
+                "message": "WAV annotations exported successfully",
+                "export_result": export_result,
+                "postgresql_result": pg_result
+            }
+            
+        except Exception as e:
+            return {"error": f"WAV annotation export failed: {str(e)}"}
+    
+    def restore_wav_annotations(self, task_id: int, db_connection) -> Dict:
+        """从PostgreSQL恢复WAV标注数据"""
+        try:
+            if not self.wav_manager:
+                return {"error": "WAV manager not initialized"}
+            
+            return self.wav_manager.restore_annotations_from_postgres(
+                task_id, 
+                db_connection
+            )
+            
+        except Exception as e:
+            return {"error": f"WAV annotation restore failed: {str(e)}"}
+    
+    def get_wav_workflow_config(self) -> Dict:
+        """获取WAV工作流配置"""
+        try:
+            if not self.wav_manager:
+                return {"error": "WAV manager not initialized"}
+            
+            return self.wav_manager.create_audio_workflow_config()
+            
+        except Exception as e:
+            return {"error": f"Failed to get WAV workflow config: {str(e)}"}

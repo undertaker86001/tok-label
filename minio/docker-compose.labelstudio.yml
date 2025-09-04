@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: labelstudio-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-label_studio}
+      POSTGRES_USER: ${POSTGRES_USER:-labelstudio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-labelstudio123}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - labelstudio-network
+    restart: unless-stopped
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: labelstudio-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - labelstudio-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Label Studio服务
+  label-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile.labelstudio
+    container_name: labelstudio-app
+    ports:
+      - "${LABEL_STUDIO_PORT:-8080}:8080"
+    environment:
+      LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED: "true"
+      LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT: "/data"
+      LABEL_STUDIO_DISABLE_AUTH: "false"
+      LABEL_STUDIO_USERNAME: "${LABEL_STUDIO_USERNAME:-admin}"
+      LABEL_STUDIO_PASSWORD: "${LABEL_STUDIO_PASSWORD:-admin123}"
+      LABEL_STUDIO_HOST: "0.0.0.0"
+      LABEL_STUDIO_PORT: "8080"
+      LABEL_STUDIO_DEBUG: "${DEBUG:-false}"
+      LABEL_STUDIO_LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      # MinIO配置
+      MINIO_ENDPOINT: "${MINIO_ENDPOINT:-localhost:9000}"
+      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY:-minioadmin}"
+      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY:-minioadmin}"
+      MINIO_BUCKET: "${MINIO_BUCKET:-tok-label}"
+      MINIO_SECURE: "${MINIO_SECURE:-false}"
+    volumes:
+      - labelstudio_data:/data
+      - ./data:/data/upload
+      - ./labelstudio-config.json:/app/labelstudio-config.json:ro
+    networks:
+      - labelstudio-network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  labelstudio_data:
+    driver: local
+
+networks:
+  labelstudio-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

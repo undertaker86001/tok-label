@@ -1,0 +1,289 @@
+{
+  "label_studio": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "debug": false,
+    "log_level": "INFO",
+    "internal_host": "0.0.0.0",
+    "internal_port": 8080,
+    "external_host": "localhost",
+    "external_port": 8080,
+    "disable_auth": false,
+    "disable_analytics": true,
+    "disable_telemetry": true,
+    "enable_analytics": false,
+    "enable_telemetry": false,
+    "local_files_serving_enabled": true,
+    "local_files_document_root": "/data",
+    "local_files_upload_dir": "/data/upload",
+    "local_files_upload_dir_permissions": "rwxrwxrwx",
+    "local_files_upload_dir_owner": "labelstudio",
+    "local_files_upload_dir_group": "labelstudio",
+    "local_files_upload_dir_mode": "0777",
+    "local_files_upload_dir_create": true,
+    "local_files_upload_dir_cleanup": true,
+    "local_files_upload_dir_cleanup_interval": 3600,
+    "local_files_upload_dir_max_size": "10GB",
+    "local_files_upload_dir_max_files": 10000,
+    "local_files_upload_dir_allowed_extensions": [
+      ".wav",
+      ".mp3",
+      ".flac",
+      ".ogg",
+      ".m4a",
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".gif",
+      ".bmp",
+      ".tiff",
+      ".pdf",
+      ".txt",
+      ".csv",
+      ".json",
+      ".xml",
+      ".html",
+      ".htm"
+    ],
+    "local_files_upload_dir_forbidden_extensions": [
+      ".exe",
+      ".bat",
+      ".cmd",
+      ".com",
+      ".pif",
+      ".scr",
+      ".vbs",
+      ".js",
+      ".jar"
+    ],
+    "local_files_upload_dir_max_file_size": "100MB",
+    "local_files_upload_dir_compression": true,
+    "local_files_upload_dir_compression_level": 6,
+    "local_files_upload_dir_compression_method": "gzip",
+    "local_files_upload_dir_compression_extensions": [
+      ".txt",
+      ".csv",
+      ".json",
+      ".xml",
+      ".html",
+      ".htm"
+    ],
+    "local_files_upload_dir_compression_min_size": "1KB",
+    "local_files_upload_dir_compression_max_size": "10MB",
+    "local_files_upload_dir_compression_ratio": 0.8,
+    "local_files_upload_dir_compression_timeout": 30,
+    "local_files_upload_dir_compression_workers": 2,
+    "local_files_upload_dir_compression_queue_size": 100,
+    "local_files_upload_dir_compression_retry_count": 3,
+    "local_files_upload_dir_compression_retry_delay": 1,
+    "local_files_upload_dir_compression_retry_backoff": 2,
+    "local_files_upload_dir_compression_retry_max_delay": 60,
+    "local_files_upload_dir_compression_retry_jitter": 0.1,
+    "local_files_upload_dir_compression_retry_exponential": true,
+    "local_files_upload_dir_compression_retry_logging": true,
+    "local_files_upload_dir_compression_retry_metrics": true,
+    "local_files_upload_dir_compression_retry_health_check": true,
+    "local_files_upload_dir_compression_retry_health_check_interval": 60,
+    "local_files_upload_dir_compression_retry_health_check_timeout": 10,
+    "local_files_upload_dir_compression_retry_health_check_retries": 3,
+    "local_files_upload_dir_compression_retry_health_check_failure_threshold": 3,
+    "local_files_upload_dir_compression_retry_health_check_success_threshold": 1,
+    "local_files_upload_dir_compression_retry_health_check_initial_delay": 5,
+    "local_files_upload_dir_compression_retry_health_check_period": 30,
+    "local_files_upload_dir_compression_retry_health_check_timeout_seconds": 10,
+    "local_files_upload_dir_compression_retry_health_check_interval_seconds": 60,
+    "local_files_upload_dir_compression_retry_health_check_retries_count": 3,
+    "local_files_upload_dir_compression_retry_health_check_failure_threshold_count": 3,
+    "local_files_upload_dir_compression_retry_health_check_success_threshold_count": 1,
+    "local_files_upload_dir_compression_retry_health_check_initial_delay_seconds": 5,
+    "local_files_upload_dir_compression_retry_health_check_period_seconds": 30,
+    "local_files_upload_dir_compression_retry_health_check_timeout_seconds_count": 10,
+    "local_files_upload_dir_compression_retry_health_check_interval_seconds_count": 60,
+    "local_files_upload_dir_compression_retry_health_check_retries_count_count": 3,
+    "local_files_upload_dir_compression_retry_health_check_failure_threshold_count_count": 3,
+    "local_files_upload_dir_compression_retry_health_check_success_threshold_count_count": 1,
+    "local_files_upload_dir_compression_retry_health_check_initial_delay_seconds_count": 5,
+    "local_files_upload_dir_compression_retry_health_check_period_seconds_count": 30
+  },
+  "database": {
+    "engine": "django.db.backends.postgresql",
+    "name": "label_studio",
+    "user": "labelstudio",
+    "password": "labelstudio123",
+    "host": "postgres",
+    "port": 5432,
+    "options": {
+      "sslmode": "disable"
+    }
+  },
+  "redis": {
+    "host": "redis",
+    "port": 6379,
+    "db": 0,
+    "password": null,
+    "ssl": false,
+    "ssl_cert_reqs": "required",
+    "ssl_ca_certs": null,
+    "ssl_certfile": null,
+    "ssl_keyfile": null,
+    "ssl_check_hostname": true,
+    "connection_pool_class": "redis.connection.BlockingConnectionPool",
+    "max_connections": 50,
+    "retry_on_timeout": true,
+    "health_check_interval": 30,
+    "socket_connect_timeout": 5,
+    "socket_timeout": 5,
+    "socket_keepalive": false,
+    "socket_keepalive_options": {},
+    "socket_type": 0,
+    "socket_keepalive_idle": 1,
+    "socket_keepalive_interval": 1,
+    "socket_keepalive_count": 1
+  },
+  "storage": {
+    "backend": "django.core.files.storage.FileSystemStorage",
+    "options": {
+      "location": "/data/media",
+      "base_url": "/media/"
+    }
+  },
+  "static": {
+    "backend": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    "options": {
+      "location": "/data/static",
+      "base_url": "/static/"
+    }
+  },
+  "sessions": {
+    "backend": "django.contrib.sessions.backends.db",
+    "options": {
+      "table_name": "django_session"
+    }
+  },
+  "cache": {
+    "backend": "django.core.cache.backends.redis.RedisCache",
+    "options": {
+      "location": "redis://redis:6379/1"
+    }
+  },
+  "celery": {
+    "broker_url": "redis://redis:6379/2",
+    "result_backend": "redis://redis:6379/3",
+    "task_serializer": "json",
+    "accept_content": ["json"],
+    "result_serializer": "json",
+    "timezone": "UTC",
+    "enable_utc": true,
+    "task_track_started": true,
+    "task_time_limit": 30 * 60,
+    "task_soft_time_limit": 60,
+    "worker_prefetch_multiplier": 1,
+    "worker_max_tasks_per_child": 1000,
+    "worker_disable_rate_limits": false,
+    "worker_proc_alive_timeout": 60.0,
+    "worker_send_task_events": true,
+    "worker_store_errors_even_if_ignored": true,
+    "worker_log_format": "[%(asctime)s: %(levelname)s/%(processName)s] %(message)s",
+    "worker_task_log_format": "[%(asctime)s: %(levelname)s/%(processName)s] [%(task_name)s(%(task_id)s)] %(message)s",
+    "worker_redirect_stdouts": true,
+    "worker_redirect_stdouts_level": "WARNING",
+    "worker_pool_restarts": true,
+    "worker_cancel_long_running_tasks_on_connection_loss": true,
+    "worker_enable_remote_control": true,
+    "worker_pool": "prefork",
+    "worker_concurrency": 4,
+    "worker_max_memory_per_child": 200000,
+    "worker_max_tasks_per_child": 1000,
+    "worker_prefetch_multiplier": 1,
+    "worker_disable_rate_limits": false,
+    "worker_proc_alive_timeout": 60.0,
+    "worker_send_task_events": true,
+    "worker_store_errors_even_if_ignored": true,
+    "worker_log_format": "[%(asctime)s: %(levelname)s/%(processName)s] %(message)s",
+    "worker_task_log_format": "[%(asctime)s: %(levelname)s/%(processName)s] [%(task_name)s(%(task_id)s)] %(message)s",
+    "worker_redirect_stdouts": true,
+    "worker_redirect_stdouts_level": "WARNING",
+    "worker_pool_restarts": true,
+    "worker_cancel_long_running_tasks_on_connection_loss": true,
+    "worker_enable_remote_control": true,
+    "worker_pool": "prefork",
+    "worker_concurrency": 4,
+    "worker_max_memory_per_child": 200000,
+    "worker_max_tasks_per_child": 1000,
+    "worker_prefetch_multiplier": 1,
+    "worker_disable_rate_limits": false,
+    "worker_proc_alive_timeout": 60.0,
+    "worker_send_task_events": true,
+    "worker_store_errors_even_if_ignored": true,
+    "worker_log_format": "[%(asctime)s: %(levelname)s/%(processName)s] %(message)s",
+    "worker_task_log_format": "[%(asctime)s: %(levelname)s/%(processName)s] [%(task_name)s(%(task_id)s)] %(message)s",
+    "worker_redirect_stdouts": true,
+    "worker_redirect_stdouts_level": "WARNING",
+    "worker_pool_restarts": true,
+    "worker_cancel_long_running_tasks_on_connection_loss": true,
+    "worker_enable_remote_control": true,
+    "worker_pool": "prefork",
+    "worker_concurrency": 4,
+    "worker_max_memory_per_child": 200000
+  },
+  "security": {
+    "secret_key": "your-secret-key-here-change-in-production",
+    "allowed_hosts": ["*"],
+    "csrf_trusted_origins": ["http://localhost:8080", "http://127.0.0.1:8080"],
+    "cors_origins": ["http://localhost:8080", "http://127.0.0.1:8080"],
+    "cors_allow_credentials": true,
+    "cors_allow_methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    "cors_allow_headers": ["*"],
+    "cors_expose_headers": ["*"],
+    "cors_max_age": 86400,
+    "cors_preflight_max_age": 86400,
+    "cors_allow_all_origins": true,
+    "cors_allow_all_methods": true,
+    "cors_allow_all_headers": true,
+    "cors_expose_all_headers": true,
+    "cors_allow_credentials": true,
+    "cors_max_age": 86400,
+    "cors_preflight_max_age": 86400
+  },
+  "logging": {
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+      "verbose": {
+        "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+        "style": "{"
+      },
+      "simple": {
+        "format": "{levelname} {message}",
+        "style": "{"
+      }
+    },
+    "handlers": {
+      "console": {
+        "class": "logging.StreamHandler",
+        "formatter": "verbose"
+      },
+      "file": {
+        "class": "logging.FileHandler",
+        "filename": "/data/labelstudio.log",
+        "formatter": "verbose"
+      }
+    },
+    "root": {
+      "handlers": ["console", "file"],
+      "level": "INFO"
+    },
+    "loggers": {
+      "django": {
+        "handlers": ["console", "file"],
+        "level": "INFO",
+        "propagate": false
+      },
+      "label_studio": {
+        "handlers": ["console", "file"],
+        "level": "INFO",
+        "propagate": false
+      }
+    }
+  }
+}

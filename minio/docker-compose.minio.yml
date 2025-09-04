@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  # MinIO服务
+  minio:
+    image: minio/minio:latest
+    container_name: toklabel-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - toklabel-network
+    restart: unless-stopped
+
+  # Redis服务
+  redis:
+    image: redis:7-alpine
+    container_name: toklabel-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - toklabel-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # PostgreSQL服务
+  postgres:
+    image: postgres:15-alpine
+    container_name: toklabel-postgres
+    environment:
+      POSTGRES_DB: toklabel
+      POSTGRES_USER: toklabel
+      POSTGRES_PASSWORD: toklabel123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - toklabel-network
+    restart: unless-stopped
+
+  # Label Studio服务
+  label-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile.labelstudio
+    container_name: toklabel-labelstudio
+    ports:
+      - "8080:8080"
+    environment:
+      LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED: "true"
+      LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT: "/data"
+      LABEL_STUDIO_DISABLE_AUTH: "false"
+      LABEL_STUDIO_USERNAME: "admin"
+      LABEL_STUDIO_PASSWORD: "admin123"
+      LABEL_STUDIO_HOST: "0.0.0.0"
+      LABEL_STUDIO_PORT: "8080"
+      LABEL_STUDIO_DEBUG: "false"
+      LABEL_STUDIO_LOG_LEVEL: "INFO"
+    volumes:
+      - label_studio_data:/data
+      - ./data:/data/upload
+      - ./labelstudio-config.json:/app/labelstudio-config.json:ro
+    networks:
+      - toklabel-network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+      - minio
+
+  # MinIO集成测试服务
+  minio-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: toklabel-minio-test
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=tok-label
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=toklabel
+      - POSTGRES_USER=toklabel
+      - POSTGRES_PASSWORD=toklabel123
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - toklabel-network
+    depends_on:
+      - minio
+      - redis
+      - postgres
+    restart: unless-stopped
+
+  # MinIO管理界面
+  minio-console:
+    image: minio/console:latest
+    container_name: toklabel-minio-console
+    ports:
+      - "9002:9000"
+    environment:
+      CONSOLE_MINIO_SERVER: http://minio:9000
+    networks:
+      - toklabel-network
+    depends_on:
+      - minio
+    restart: unless-stopped
+
+volumes:
+  minio_data:
+    driver: local
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+  label_studio_data:
+    driver: local
+
+networks:
+  toklabel-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

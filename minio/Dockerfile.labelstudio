@@ -1,0 +1,67 @@
+# Label Studio Docker镜像
+# 专门为WAV音频标注场景优化
+
+FROM python:3.9-slim
+
+# 设置工作目录
+WORKDIR /app
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+ENV LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/data
+ENV LABEL_STUDIO_DISABLE_AUTH=false
+ENV LABEL_STUDIO_USERNAME=admin
+ENV LABEL_STUDIO_PASSWORD=admin123
+
+# 安装Label Studio
+RUN pip install --no-cache-dir \
+    label-studio==1.9.2 \
+    label-studio-ml==1.0.9 \
+    psycopg2-binary \
+    redis \
+    minio \
+    requests \
+    numpy \
+    pandas \
+    scipy \
+    librosa \
+    soundfile \
+    pydub
+
+# 创建数据目录
+RUN mkdir -p /data/upload /data/media /data/static
+
+# 复制Label Studio配置文件
+COPY labelstudio-config.json /app/labelstudio-config.json
+
+# 复制启动脚本
+COPY start-labelstudio.sh /app/start-labelstudio.sh
+RUN chmod +x /app/start-labelstudio.sh
+
+# 创建Label Studio用户
+RUN useradd -m -s /bin/bash labelstudio && \
+    chown -R labelstudio:labelstudio /app /data
+
+# 切换到Label Studio用户
+USER labelstudio
+
+# 暴露端口
+EXPOSE 8080
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# 启动命令
+CMD ["/app/start-labelstudio.sh"]
