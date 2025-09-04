@@ -25,6 +25,60 @@ API_KEY = '<YOUR_API_KEY>'  # 从 Label Studio 的 Account & Settings 获取
 ls: LabelStudio = toklabel.connect_Label_Studio(API_key=API_KEY)
 ```
 
+## MinIO存储集成
+
+tok-label现在支持MinIO对象存储作为数据后端，提供更好的可扩展性和分布式存储能力。
+
+### MinIO配置
+
+在`.env`文件中配置MinIO连接信息：
+
+```bash
+# MinIO配置
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=tok-label
+MINIO_SECURE=false
+STORAGE_BACKEND=minio  # 设置为"minio"启用MinIO存储
+```
+
+### 使用MinIO存储
+
+```python
+import toklabel
+from toklabel.minio_importer import MinIOImporter
+
+# 1. 直接MinIO操作
+from toklabel.utils import upload_to_minio, download_from_minio, list_minio_objects
+
+# 列出MinIO中的文件
+files = list_minio_objects(prefix="plasma_data/", recursive=True)
+
+# 上传文件到MinIO
+sample_data = pd.DataFrame({'time': [1, 2, 3], 'value': [10, 20, 30]})
+csv_content = sample_data.to_csv(index=False).encode('utf-8')
+upload_result = upload_to_minio("test/sample.csv", csv_content)
+
+# 2. 使用MinIOImporter批量导入
+importer = MinIOImporter("plasma_analysis")
+result = importer.batch_import_csv_files(prefix="plasma_data/2024")
+
+# 3. 在ProjectBuilder中使用MinIO
+pb = toklabel.ProjectBuilder('project-config-minio.yaml')
+result = pb.import_from_minio(minio_prefix="plasma_data/2024")
+```
+
+### 本地MinIO测试环境
+
+使用Docker Compose快速启动MinIO测试环境：
+
+```bash
+docker-compose -f docker-compose.minio.yml up -d
+```
+
+访问MinIO控制台：http://localhost:9001
+
 ## 使用ProjectBuilder完成项目数据配置
 
 现在，toklabel新增了ProjectBuilder已帮助完成项目数据配置，原来的配置方式并非删除，相关说明放在末尾。

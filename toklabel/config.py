@@ -26,3 +26,11 @@ POSTGRE_PORT = os.getenv('POSTGRE_PORT', '5432')
 POSTGRE_USER = os.getenv('POSTGRE_USER', 'example_user')
 POSTGRE_PASSWORD = os.getenv('POSTGRE_PASSWORD', 'example_password')
 POSTGRE_DATABASE = os.getenv('POSTGRE_DATABASE', 'example_db')
+
+# MinIO配置
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+MINIO_BUCKET = os.getenv("MINIO_BUCKET", "tok-label")
+MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
+STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local")  # "local" or "minio"

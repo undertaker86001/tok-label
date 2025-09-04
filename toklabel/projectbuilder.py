@@ -407,6 +407,233 @@ class ProjectBuilder():
         '''
         return toklabel.create_storage(ls, self.project_id, project_name=self.project, path=self.file_path, title=title, description=description)
 
+    def import_from_minio(self, minio_prefix: str = None, bucket: str = None, force_reload: bool = False) -> Dict:
+        """
+        从MinIO导入数据到当前项目
+        
+        参数:
+        minio_prefix (str, optional): MinIO对象前缀，默认使用配置中的前缀
+        bucket (str, optional): 存储桶名称，默认使用配置中的桶
+        force_reload (bool): 是否强制重新加载数据
+        
+        返回:
+        Dict: 导入结果
+        """
+        from .minio_importer import MinIOImporter
+        
+        # 使用配置中的默认值
+        prefix = minio_prefix or getattr(self, 'minio_prefix', '')
+        bucket_name = bucket or getattr(self, 'minio_bucket', None)
+        
+        try:
+            importer = MinIOImporter(self.project, bucket_name)
+            
+            # 检查是否已经导入过数据
+            if not force_reload and self.data_exported:
+                existing_urls = self._get_existing_urls()
+                if existing_urls:
+                    return {
+                        "message": "Data already imported from MinIO",
+                        "imported_shots": list(existing_urls.keys()),
+                        "use_force_reload": "Set force_reload=True to reimport"
+                    }
+            
+            # 执行批量导入
+            result = importer.batch_import_csv_files(
+                prefix=prefix, 
+                shot_pattern=getattr(self, 'minio_import_pattern', r'/(\d+)\.csv$')
+            )
+            
+            if not result.get("error"):
+                # 更新项目的shots列表
+                imported_shots = result.get("imported_shots", [])
+                if hasattr(self, 'shots') and isinstance(self.shots, list):
+                    # 合并新导入的shots，避免重复
+                    existing_shots = set(self.shots)
+                    new_shots = [shot for shot in imported_shots if shot not in existing_shots]
+                    self.shots.extend(new_shots)
+                else:
+                    self.shots = imported_shots
+                
+                # 标记数据已导出
+                self.data_exported = True
+                
+                # 如果启用自动同步，更新processed_data
+                if getattr(self, 'auto_sync_minio', False):
+                    self._sync_processed_data_from_minio(imported_shots)
+            
+            return result
+            
+        except Exception as e:
+            return {"error": f"MinIO import error: {str(e)}"}
+
+    def _get_existing_urls(self) -> Dict:
+        """获取已存在的URL映射"""
+        from .utils import list_files, parse_urls_shots
+        
+        try:
+            file_list = list_files(self.file_path)
+            if isinstance(file_list, dict) and "urls" in file_list:
+                return parse_urls_shots(file_list["urls"])
+            return {}
+        except Exception:
+            return {}
+
+    def _sync_processed_data_from_minio(self, shots: List[int]):
+        """从MinIO同步处理后的数据到本地"""
+        from .minio_importer import MinIOImporter
+        
+        try:
+            importer = MinIOImporter(self.project, getattr(self, 'minio_bucket', None))
+            synced_data = {}
+            
+            for shot in shots:
+                file_path = f"{getattr(self, 'minio_prefix', '')}/{self.project}/{shot}.csv"
+                df = importer.download_and_convert_csv(file_path)
+                if df is not None:
+                    synced_data[shot] = df
+            
+            if not hasattr(self, 'processed_data'):
+                self.processed_data = {}
+            self.processed_data.update(synced_data)
+            
+        except Exception as e:
+            print(f"Warning: Failed to sync processed data from MinIO: {e}")
+
+    def export_to_minio(self, minio_prefix: str = None, bucket: str = None, include_annotations: bool = False) -> Dict:
+        """
+        将当前项目数据导出到MinIO
+        
+        参数:
+        minio_prefix (str, optional): MinIO对象前缀
+        bucket (str, optional): 存储桶名称
+        include_annotations (bool): 是否包含标注数据
+        
+        返回:
+        Dict: 导出结果
+        """
+        from .utils import upload_to_minio
+        
+        prefix = minio_prefix or getattr(self, 'minio_prefix', '')
+        bucket_name = bucket or getattr(self, 'minio_bucket', None)
+        
+        try:
+            uploaded_files = []
+            failed_files = []
+            
+            # 导出CSV数据
+            if hasattr(self, 'processed_data') and self.processed_data:
+                for shot, df in self.processed_data.items():
+                    file_path = f"{prefix}/{self.project}/data/{shot}.csv" if prefix else f"{self.project}/data/{shot}.csv"
+                    csv_content = df.to_csv(index=False, encoding='utf-8').encode('utf-8')
+                    
+                    result = upload_to_minio(file_path, csv_content, bucket_name)
+                    
+                    if result.get("error"):
+                        failed_files.append({"shot": shot, "type": "data", "error": result["error"]})
+                    else:
+                        uploaded_files.append({"shot": shot, "type": "data", "path": file_path})
+            
+            # 导出标注数据（如果需要）
+            if include_annotations:
+                annotation_result = self._export_annotations_to_minio(prefix, bucket_name)
+                uploaded_files.extend(annotation_result.get("uploaded_files", []))
+                failed_files.extend(annotation_result.get("failed_files", []))
+            
+            return {
+                "message": f"Exported {len(uploaded_files)} files to MinIO",
+                "uploaded_files": uploaded_files,
+                "failed_files": failed_files,
+                "bucket": bucket_name,
+                "prefix": prefix
+            }
+            
+        except Exception as e:
+            return {"error": f"Export to MinIO error: {str(e)}"}
+
+    def _export_annotations_to_minio(self, prefix: str, bucket: str) -> Dict:
+        """导出标注数据到MinIO"""
+        from .utils import upload_to_minio
+        import json
+        
+        uploaded_files = []
+        failed_files = []
+        
+        try:
+            # 这里假设有标注数据需要导出
+            # 实际实现需要根据项目的标注数据结构调整
+            if hasattr(self, 'annotations') and self.annotations:
+                for shot, annotations in self.annotations.items():
+                    file_path = f"{prefix}/{self.project}/annotations/{shot}.json" if prefix else f"{self.project}/annotations/{shot}.json"
+                    json_content = json.dumps(annotations, ensure_ascii=False, indent=2).encode('utf-8')
+                    
+                    result = upload_to_minio(file_path, json_content, bucket)
+                    
+                    if result.get("error"):
+                        failed_files.append({"shot": shot, "type": "annotation", "error": result["error"]})
+                    else:
+                        uploaded_files.append({"shot": shot, "type": "annotation", "path": file_path})
+        
+        except Exception as e:
+            failed_files.append({"error": f"Annotation export error: {str(e)}"})
+        
+        return {"uploaded_files": uploaded_files, "failed_files": failed_files}
+
+    def sync_with_minio(self, direction: str = "both") -> Dict:
+        """
+        与MinIO进行双向同步
+        
+        参数:
+        direction (str): 同步方向 - "import", "export", "both"
+        
+        返回:
+        Dict: 同步结果
+        """
+        results = {}
+        
+        try:
+            if direction in ["import", "both"]:
+                import_result = self.import_from_minio(force_reload=True)
+                results["import"] = import_result
+            
+            if direction in ["export", "both"]:
+                export_result = self.export_to_minio(include_annotations=True)
+                results["export"] = export_result
+            
+            return {
+                "message": f"MinIO sync completed for direction: {direction}",
+                "results": results
+            }
+            
+        except Exception as e:
+            return {"error": f"MinIO sync error: {str(e)}"}
+
+    def prepare_data_with_minio(self, shots=None, prefer_minio: bool = None):
+        """
+        准备数据，支持MinIO优先模式
+        
+        参数:
+        shots: 炮号列表
+        prefer_minio (bool): 是否优先使用MinIO数据
+        
+        返回:
+        urls: 数据URL字典
+        """
+        prefer_minio = prefer_minio if prefer_minio is not None else getattr(self, 'minio_enabled', False)
+        
+        # 如果启用MinIO且优先使用MinIO
+        if prefer_minio and getattr(self, 'minio_enabled', False):
+            # 首先尝试从MinIO导入数据
+            minio_result = self.import_from_minio()
+            if not minio_result.get("error"):
+                # 如果MinIO导入成功，直接返回URL
+                existing_urls = self._get_existing_urls()
+                if existing_urls:
+                    return existing_urls
+        
+        # 回退到原有的数据准备流程
+        return self.prepare_data(shots)
+
 if __name__ == "__main__":
     pb = ProjectBuilder('project_config.json', t_max=5)
     print(pb.t_max)

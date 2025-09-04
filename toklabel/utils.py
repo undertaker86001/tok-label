@@ -1,4 +1,4 @@
-from .config import FILE_SERVER_URL, EXTRACTOR_SERVER_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_DB
+from .config import FILE_SERVER_URL, EXTRACTOR_SERVER_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_DB, MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET, MINIO_SECURE, STORAGE_BACKEND
 import requests
 from typing import Dict, List, Optional, Tuple, Callable, Union
 import redis
@@ -23,23 +23,24 @@ from label_studio_sdk.converter import brush as rle_util
 import logging
 logger = logging.getLogger(__name__)
 
+def get_file_url_prefix():
+    """根据存储后端返回正确的URL前缀"""
+    if STORAGE_BACKEND == "minio":
+        return f"{FILE_SERVER_URL}/download"
+    else:
+        return f"{FILE_SERVER_URL}/files"
+
 def list_files(dir: str, recursive: bool = False):
     """
-    列出目录下的所有文件
-
-    参数:
-    dir (str): 目录路径
-    recursive(bool): 是否递归查询子目录
-
-    返回:
-    List[str]: 列表，每个元素为文件的 URL
+    列出目录下的所有文件，支持MinIO和本地存储
     """
     try:
         params = {"dir": dir, "recursive": recursive} 
         response = requests.get(f"{FILE_SERVER_URL}/list/", params=params)
         response.raise_for_status()
-        # add url to files
         result = response.json()
+        
+        # URL已经在服务器端正确生成，直接添加服务器前缀
         if "urls" in result:
             result["urls"] = [f"{FILE_SERVER_URL}{url}" for url in result["urls"]]
         return result
@@ -425,21 +426,22 @@ def load_imgs(urls: Dict[int, List[str]],
 
 def upload_dataframe(dir: str, file: str, dataframe: pd.DataFrame):
     """
-    上传数据框到文件服务器
-
+    上传数据框到文件服务器，支持MinIO和本地存储
+    
     参数:
     dir (str): 目录路径
     file (str): 文件名，建议以shot_id.csv的格式命名
     dataframe (pd.DataFrame): 数据框
-
+    
     返回:
     message: 操作成功或失败的消息
     """
     try:
         # Convert DataFrame to in-memory CSV file
         csv_buffer = BytesIO()
-        dataframe.to_csv(csv_buffer, index=False)
+        dataframe.to_csv(csv_buffer, index=False, encoding='utf-8')
         csv_buffer.seek(0)  # Reset buffer position to beginning
+        
         # Upload directly
         file_path = f"{dir}/{file}"
         response = requests.post(
@@ -447,6 +449,7 @@ def upload_dataframe(dir: str, file: str, dataframe: pd.DataFrame):
             files={"file": (file_path, csv_buffer, "text/csv")}
         ) 
         response.raise_for_status()
+        
         # return url
         result = response.json()
         if "url" in result:
@@ -454,6 +457,185 @@ def upload_dataframe(dir: str, file: str, dataframe: pd.DataFrame):
         return result
     except Exception as e:
         return {"error": str(e)}
+
+def upload_to_minio(file_path: str, content: bytes, bucket: str = None):
+    """
+    直接上传数据到MinIO
+    
+    参数:
+    file_path (str): MinIO中的文件路径
+    content (bytes): 文件内容
+    bucket (str, optional): 存储桶名称，默认使用配置中的桶
+    
+    返回:
+    Dict: 包含操作结果的字典
+    """
+    try:
+        from minio import Minio
+        from minio.error import S3Error
+        
+        client = Minio(
+            MINIO_ENDPOINT,
+            access_key=MINIO_ACCESS_KEY,
+            secret_key=MINIO_SECRET_KEY,
+            secure=MINIO_SECURE
+        )
+        
+        bucket_name = bucket or MINIO_BUCKET
+        
+        # 确保存储桶存在
+        if not client.bucket_exists(bucket_name):
+            client.make_bucket(bucket_name)
+        
+        # 上传文件
+        client.put_object(
+            bucket_name,
+            file_path,
+            BytesIO(content),
+            len(content)
+        )
+        
+        return {
+            "message": f"File {file_path} uploaded to MinIO successfully",
+            "path": file_path,
+            "bucket": bucket_name
+        }
+    except S3Error as e:
+        return {"error": f"MinIO error: {str(e)}"}
+    except Exception as e:
+        return {"error": f"Upload error: {str(e)}"}
+
+def download_from_minio(file_path: str, bucket: str = None) -> bytes:
+    """
+    从MinIO下载文件
+    
+    参数:
+    file_path (str): MinIO中的文件路径
+    bucket (str, optional): 存储桶名称，默认使用配置中的桶
+    
+    返回:
+    bytes: 文件内容
+    """
+    try:
+        from minio import Minio
+        from minio.error import S3Error
+        
+        client = Minio(
+            MINIO_ENDPOINT,
+            access_key=MINIO_ACCESS_KEY,
+            secret_key=MINIO_SECRET_KEY,
+            secure=MINIO_SECURE
+        )
+        
+        bucket_name = bucket or MINIO_BUCKET
+        response = client.get_object(bucket_name, file_path)
+        return response.read()
+    except S3Error as e:
+        raise Exception(f"MinIO error: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Download error: {str(e)}")
+
+def list_minio_objects(prefix: str = "", bucket: str = None, recursive: bool = False) -> List[str]:
+    """
+    列出MinIO中的对象
+    
+    参数:
+    prefix (str): 对象前缀
+    bucket (str, optional): 存储桶名称，默认使用配置中的桶
+    recursive (bool): 是否递归列出
+    
+    返回:
+    List[str]: 对象名称列表
+    """
+    try:
+        from minio import Minio
+        from minio.error import S3Error
+        
+        client = Minio(
+            MINIO_ENDPOINT,
+            access_key=MINIO_ACCESS_KEY,
+            secret_key=MINIO_SECRET_KEY,
+            secure=MINIO_SECURE
+        )
+        
+        bucket_name = bucket or MINIO_BUCKET
+        objects = client.list_objects(bucket_name, prefix=prefix, recursive=recursive)
+        return [obj.object_name for obj in objects if not obj.object_name.endswith('/')]
+    except S3Error as e:
+        print(f"MinIO error: {e}")
+        return []
+    except Exception as e:
+        print(f"List error: {e}")
+        return []
+
+def import_from_minio_to_redis(
+    project_name: str,
+    minio_prefix: str = "",
+    bucket: str = None,
+    key: str = "csv",
+    db: int = None
+):
+    """
+    从MinIO导入数据到Redis
+    
+    参数:
+    project_name (str): 项目名称
+    minio_prefix (str): MinIO对象前缀
+    bucket (str, optional): 存储桶名称
+    key (str): Redis中的数据键名
+    db (int, optional): Redis数据库编号
+    
+    返回:
+    Dict: 包含操作结果的字典
+    """
+    try:
+        # 列出MinIO中的文件
+        files = list_minio_objects(prefix=minio_prefix, bucket=bucket, recursive=True)
+        
+        if not files:
+            return {"error": "No files found in MinIO with the specified prefix"}
+        
+        # 为每个文件生成下载URL
+        urls = {}
+        for file_path in files:
+            # 从文件路径中提取shot号
+            import re
+            shot_match = re.search(r'/(\d+)\.csv$', file_path)
+            if shot_match:
+                shot = int(shot_match.group(1))
+                # 生成下载URL
+                if STORAGE_BACKEND == "minio":
+                    urls[shot] = f"{FILE_SERVER_URL}/download/{file_path}"
+                else:
+                    # 如果当前不是MinIO模式，需要先下载到本地
+                    content = download_from_minio(file_path, bucket)
+                    # 上传到本地文件服务器
+                    upload_response = requests.post(
+                        f"{FILE_SERVER_URL}/upload/",
+                        files={"file": (file_path, BytesIO(content), "text/csv")}
+                    )
+                    if upload_response.status_code == 200:
+                        result = upload_response.json()
+                        urls[shot] = f"{FILE_SERVER_URL}{result['url']}"
+        
+        # 导出到Redis
+        if urls:
+            redis_result = export_urls_to_redis(
+                project_name=project_name,
+                urls=urls,
+                key=key,
+                db=db or REDIS_DB
+            )
+            return {
+                "message": f"Successfully imported {len(urls)} files from MinIO to Redis",
+                "files_imported": len(urls),
+                "redis_result": redis_result
+            }
+        else:
+            return {"error": "No valid CSV files found with shot numbers"}
+            
+    except Exception as e:
+        return {"error": f"Import error: {str(e)}"}
 
 
 def delete_redis_file(dir: str, file: Optional[str]=None, max_workers: int = 20, batch_size: int = 50):
