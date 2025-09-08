@@ -1,0 +1,97 @@
+# 音频转换工具配置文件
+# 支持自定义FFmpeg参数
+
+# 默认配置（保留原有功能）
+default:
+  # 基础转换参数
+  audio_codec: "pcm_s16le"
+  output_sample_rate: 44100
+  output_channels: 1
+  disable_video: true
+  map_audio: true
+  
+  # 探测参数
+  probesize: "10M"
+  analyzeduration: "10M"
+
+# 高质量配置
+high_quality:
+  audio_codec: "pcm_s24le"
+  output_sample_rate: 48000
+  output_channels: 2
+  audio_bitrate: "192k"
+  disable_video: true
+  map_audio: true
+  probesize: "20M"
+  analyzeduration: "20M"
+
+# 专业配置
+professional:
+  audio_codec: "pcm_s32le"
+  output_sample_rate: 96000
+  output_channels: 2
+  audio_bitrate: "320k"
+  disable_video: true
+  map_audio: true
+  probesize: "50M"
+  analyzeduration: "50M"
+  extra_params: ["-threads", "4"]
+
+# 压缩配置
+compressed:
+  audio_codec: "aac"
+  output_sample_rate: 44100
+  output_channels: 2
+  audio_bitrate: "128k"
+  audio_quality: 2
+  disable_video: true
+  map_audio: true
+
+# 原始PCM配置
+raw_pcm_16le:
+  input_format: "s16le"
+  input_sample_rate: 44100
+  input_channels: 1
+  audio_codec: "pcm_s16le"
+  output_sample_rate: 44100
+  output_channels: 1
+
+# 原始PCM配置（大端序）
+raw_pcm_16be:
+  input_format: "s16be"
+  input_sample_rate: 44100
+  input_channels: 1
+  audio_codec: "pcm_s16le"
+  output_sample_rate: 44100
+  output_channels: 1
+
+# 原始PCM配置（32位浮点）
+raw_pcm_32le:
+  input_format: "f32le"
+  input_sample_rate: 44100
+  input_channels: 1
+  audio_codec: "pcm_s16le"
+  output_sample_rate: 44100
+  output_channels: 1
+
+# 自定义配置示例
+custom_example:
+  # 输入参数
+  input_format: "s16le"
+  input_sample_rate: 48000
+  input_channels: 2
+  
+  # 探测参数
+  probesize: "30M"
+  analyzeduration: "30M"
+  
+  # 输出参数
+  audio_codec: "pcm_s24le"
+  output_sample_rate: 48000
+  output_channels: 2
+  audio_bitrate: "192k"
+  disable_video: true
+  map_audio: true
+  
+  # 额外参数
+  extra_params: ["-threads", "8", "-max_muxing_queue_size", "1024"]
