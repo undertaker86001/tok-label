@@ -285,8 +285,30 @@ class AudioConverter:
         if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir)
         
+        # 如果有自定义参数，优先尝试自定义方法
+        if self.custom_params:
+            logger.info("检测到自定义参数，优先使用自定义转换方法")
+            try:
+                success = self._method_custom(input_file, output_file, analysis)
+                if success:
+                    logger.info("✓ 自定义转换成功")
+                    
+                    # 验证输出文件
+                    if self._verify_output(output_file):
+                        return True
+                    else:
+                        logger.warning("自定义转换输出文件验证失败，尝试其他方法")
+                else:
+                    logger.warning("自定义转换失败，尝试其他方法")
+            except Exception as e:
+                logger.error(f"自定义转换出错: {e}")
+        
         # 尝试各种转换方法
         for i, method in enumerate(self.conversion_methods, 1):
+            # 跳过自定义方法，因为已经在上面尝试过了
+            if method == self._method_custom:
+                continue
+                
             logger.info(f"尝试转换方法 {i}: {method.__name__}")
             
             try:
@@ -404,6 +426,22 @@ class AudioConverter:
         # 构建基础命令
         cmd = [self.ffmpeg_path]
         
+        # 对于原始PCM数据，需要指定输入格式
+        # 如果没有指定输入格式，尝试自动检测
+        if 'input_format' not in self.custom_params:
+            # 尝试常见的PCM格式
+            pcm_formats = ['s16le', 's16be', 'f32le', 'f32be', 's24le', 's24be']
+            for fmt in pcm_formats:
+                test_cmd = [self.ffmpeg_path, '-f', fmt, '-ar', '44100', '-ac', '1', '-i', input_file, '-t', '1', '-f', 'null', '-']
+                try:
+                    result = subprocess.run(test_cmd, capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        self.custom_params['input_format'] = fmt
+                        logger.info(f"自动检测到输入格式: {fmt}")
+                        break
+                except:
+                    continue
+        
         # 添加输入参数
         if 'input_format' in self.custom_params:
             cmd.extend(['-f', self.custom_params['input_format']])
@@ -428,8 +466,11 @@ class AudioConverter:
         if 'disable_video' in self.custom_params and self.custom_params['disable_video']:
             cmd.append('-vn')
             
+        # 只有在有音频流时才映射音频
         if 'map_audio' in self.custom_params and self.custom_params['map_audio']:
-            cmd.extend(['-map', '0:a'])
+            # 对于原始PCM数据，不需要映射音频流
+            if 'input_format' not in self.custom_params:
+                cmd.extend(['-map', '0:a'])
         
         # 音频编码参数
         if 'audio_codec' in self.custom_params:
@@ -457,7 +498,7 @@ class AudioConverter:
         # 添加输出文件
         cmd.extend(['-y', output_file])
         
-        logger.debug(f"自定义转换命令: {' '.join(cmd)}")
+        logger.info(f"自定义转换命令: {' '.join(cmd)}")
         return self._execute_conversion(cmd)
     
     def _execute_conversion(self, cmd: List[str]) -> bool:
@@ -875,9 +916,14 @@ def main():
         input_file = sys.argv[1]
         output_file = None
         
-        # 查找输出文件参数
+        # 查找输出文件参数（排除所有配置参数）
         for i, arg in enumerate(sys.argv[2:], 2):
-            if arg != '--skip-validation':
+            if (arg != '--skip-validation' and 
+                not arg.startswith('--custom-') and 
+                arg != '--config' and 
+                arg != '--profile' and
+                not (i > 2 and sys.argv[i-1] in ['--config', '--profile']) and
+                not (i > 2 and sys.argv[i-1].startswith('--custom-'))):
                 output_file = arg
                 break
         
