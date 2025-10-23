@@ -122,6 +122,7 @@ if __name__ == "__main__":
 
     app = init_app(
         model_class=MiningAudioMLBackend, 
+        model_dir=args.model_dir,
         basic_auth_user=args.basic_auth_user, 
         basic_auth_pass=args.basic_auth_pass
     )
@@ -129,4 +130,4 @@ if __name__ == "__main__":
 
 else:
     # 用于uWSGI
-    app = init_app(model_class=MiningAudioMLBackend)
+    app = init_app(model_class=MiningAudioMLBackend, model_dir=os.path.dirname(__file__))

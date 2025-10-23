@@ -53,20 +53,24 @@ class TestAudioFeatureExtractor:
         mock_bandwidth.return_value = np.random.random((1, 43))
         
         # 创建临时音频文件
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
-            temp_file.write(b'fake_audio_data')
-            temp_file.flush()
+        temp_file_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+                temp_file.write(b'fake_audio_data')
+                temp_file_path = temp_file.name
+                temp_file.flush()
             
-            try:
-                features = self.extractor.extract_features(temp_file.name)
-                
-                # 验证特征提取结果
-                assert features is not None
-                assert features.shape == (68,)  # 18个特征 * 4个统计量
-                assert not np.any(np.isnan(features))
-                
-            finally:
-                os.unlink(temp_file.name)
+            features = self.extractor.extract_features(temp_file_path)
+            
+            # 验证特征提取结果
+            assert features is not None
+            # Update to match the actual number of features (18 features * 4 statistics = 72)
+            assert features.shape == (72,)  # 18个特征 * 4个统计量
+            assert not np.any(np.isnan(features))
+            
+        finally:
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
     
     def test_extract_features_invalid_file(self):
         """测试无效文件的特征提取"""
@@ -130,11 +134,11 @@ class TestMiningAudioMLBackend:
     
     def test_model_initialization(self):
         """测试模型初始化"""
-        assert self.backend.get("model_version") == "mining_audio_v1.0"
+        assert self.backend.model_version == "mining_audio_v1.0"
         assert hasattr(self.backend, 'feature_extractor')
         assert hasattr(self.backend, 'model')
         assert hasattr(self.backend, 'scaler')
-        assert self.backend.get('training_count') == 0
+        assert self.backend.training_count == 0
     
     def test_get_model_info(self):
         """测试获取模型信息"""
@@ -164,14 +168,14 @@ class TestMiningAudioMLBackend:
     def test_reset_model(self):
         """测试模型重置"""
         # 修改一些参数
-        self.backend.set('training_count', 100)
+        self.backend.training_count = 100
         
         # 重置模型
         self.backend.reset_model()
         
         # 检查是否重置
-        assert self.backend.get('training_count') == 0
-        assert self.backend.get('model_version') == 'mining_audio_v1.0'
+        assert self.backend.training_count == 0
+        assert self.backend.model_version == 'mining_audio_v1.0'
     
     def test_update_model_config(self):
         """测试模型配置更新"""
@@ -183,7 +187,7 @@ class TestMiningAudioMLBackend:
         self.backend.update_model_config(config)
         
         # 验证配置更新
-        assert self.backend.get('model_version') == 'mining_audio_v2.0'
+        assert self.backend.model_version == 'mining_audio_v2.0'
     
     @patch.object(MiningAudioMLBackend, 'get_local_path')
     @patch.object(MiningAudioMLBackend, '_preprocess_audio')
@@ -208,11 +212,11 @@ class TestMiningAudioMLBackend:
         response = self.backend.predict(tasks)
         
         # 验证响应
-        assert hasattr(response, 'predictions')
-        assert len(response.predictions) == 1
+        assert 'predictions' in response
+        assert len(response['predictions']) == 1
         
         # 验证预测结果
-        prediction = response.predictions[0]
+        prediction = response['predictions'][0]
         assert 'result' in prediction
         assert 'model_version' in prediction
         assert 'task' in prediction
@@ -224,14 +228,19 @@ class TestMiningAudioMLBackend:
         data = {'training_data': 'test'}
         
         # 执行训练
-        self.backend.fit(event, data)
+        train_output = self.backend.fit(event, data)
         
         # 验证训练计数增加
-        assert self.backend.get('training_count') == 1
+        assert self.backend.training_count == 1
         
         # 验证模型版本更新
-        model_version = self.backend.get('model_version')
+        model_version = self.backend.model_version
         assert 'mining_audio_v1.0_' in model_version
+        
+        # 验证返回的train_output
+        assert 'model_version' in train_output
+        assert 'training_count' in train_output
+        assert 'last_training_time' in train_output
 
 
 class TestMiningLabels:

@@ -25,5 +25,12 @@
         "batch_size": 32,
         "epochs": 50,
         "early_stopping_patience": 10
+    },
+    "s3": {
+        "url": "http://192.168.32.4:30118/minio/api/v1/service-account-credentials",
+        "accessKey": "DpORrrU9DGLycOSOjgc9",
+        "secretKey": "ccgk2015",
+        "api": "s3v4",
+        "path": "auto"
     }
 }

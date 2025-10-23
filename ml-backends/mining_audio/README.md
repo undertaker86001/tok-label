@@ -63,6 +63,24 @@ python _wsgi.py --host 0.0.0.0 --port 9090 --debug
 python _wsgi.py --host 0.0.0.0 --port 9090
 ```
 
+### 使用启动脚本启动服务
+为了方便使用，我们提供了多种启动脚本：
+
+**Windows批处理脚本:**
+```cmd
+start_service.bat
+```
+
+**PowerShell脚本:**
+```powershell
+start_service.ps1
+```
+
+**Python脚本:**
+```bash
+python start_service.py
+```
+
 ### Docker部署
 ```bash
 # 构建镜像
