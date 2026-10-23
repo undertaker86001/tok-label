@@ -2,6 +2,33 @@
 
 > 这是 Label Studio 的基本工作流程以及 toklabel 使用方法的介绍
 
+## Windows 安装说明
+
+对于 Windows 用户，我们提供了 PowerShell 和批处理脚本以便安装：
+
+**使用 PowerShell 脚本:**
+```powershell
+.\install.ps1
+```
+
+**使用批处理脚本:**
+```cmd
+install.bat
+```
+
+支持的参数：
+- `-Force` 或 `--force`：强制覆盖已存在的安装
+- `-Verbose` 或 `--verbose`：显示详细的安装信息
+
+示例：
+```cmd
+install.bat --force --verbose
+```
+
+安装完成后，请重启您的命令行或 PowerShell 以使 PATH 更改生效。
+
+## 启动并连接 Label Studio
+
 ## 启动并连接 Label Studio
 
 Label Studio使用helm管理版本，部署在k8s集群中。
