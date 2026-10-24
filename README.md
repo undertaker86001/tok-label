@@ -29,8 +29,6 @@ install.bat --force --verbose
 
 ## 启动并连接 Label Studio
 
-## 启动并连接 Label Studio
-
 Label Studio使用helm管理版本，部署在k8s集群中。
 
 使用nginx转发Label Studio的端口，直接访问 [http://<YOUR_LABEL_STUDIO_HOST>](http://<YOUR_LABEL_STUDIO_HOST>) 即可。
